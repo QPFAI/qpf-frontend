@@ -1,12 +1,10 @@
-```jsx
 // src/ChatPage.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
--import axios from "axios";
-+import { sendChat } from "@/lib/api";
+import { sendChat } from "./lib/api";
 
 export default function ChatPage() {
   const [messages, setMessages] = useState([]);
@@ -15,109 +13,89 @@ export default function ChatPage() {
   const scrollRef = useRef(null);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({
+    if (!scrollRef.current) return;
+    scrollRef.current.scrollTo({
       top: scrollRef.current.scrollHeight,
       behavior: "smooth",
     });
   }, [messages]);
 
   const sendMessage = async () => {
-    if (!input.trim()) return;
-    // Append user message
-    setMessages((m) => [...m, { sender: "user", text: input }]);
+    const text = input.trim();
+    if (!text || loading) return;
+
+    setMessages((m) => [...m, { sender: "user", text }]);
+    setInput("");
     setLoading(true);
 
     try {
-      // Send chat via centralized helper
-      const data = await sendChat(input, "testuser");
-      // Append Q's response
-      setMessages((m) => [...m, { sender: "q", text: data.response }]);
-    } catch (err) {
-      console.error("Chat API error:", err);
+      const data = await sendChat(text); // POSTs to /chat with { text }
+      const reply = typeof data?.response === "string" ? data.response : "No response.";
+      setMessages((m) => [...m, { sender: "q", text: reply }]);
+    } catch (e) {
       setMessages((m) => [...m, { sender: "q", text: "Error connecting to Q." }]);
+      // optional: console.error(e);
     } finally {
       setLoading(false);
-      setInput("");
+    }
+  };
+
+  const onKeyDown = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
     }
   };
 
   return (
-    <div className="flex flex-col h-full">
-      <ScrollArea ref={scrollRef} className="flex-1 overflow-auto p-4">
-        {messages.map((msg, idx) => (
-          <Card key={idx} className={msg.sender === "user" ? "self-end bg-blue-100" : "self-start bg-gray-100"}>
-            <CardContent>{msg.text}</CardContent>
-          </Card>
-        ))}
-      </ScrollArea>
+    <div className="min-h-screen w-full flex items-center justify-center bg-gray-50 p-4">
+      <Card className="w-full max-w-2xl shadow-md">
+        <CardContent className="p-4 space-y-4">
+          <h1 className="text-xl font-semibold">QPF AI Chat Test</h1>
 
-      <div className="flex p-4 border-t">
-        <Input
-          className="flex-1 mr-2"
-          placeholder="Type your message..."
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !loading) sendMessage();
-          }}
-        />
-        <Button onClick={sendMessage} disabled={loading || !input.trim()}>
-          {loading ? 'Sending…' : 'Send'}
-        </Button>
-      </div>
-    </div>
-  );
-}
-```
-}]}
-        ...m,
-        { sender: "q", text: "Error connecting to Q." },
-      ]);
-    } finally {
-      setLoading(false);
-      setInput("");
-    }
-  };
-
-  return (
-    <div className="flex flex-col h-screen bg-gray-50 p-4">
-      <header className="text-2xl font-bold mb-4 text-center">
-        QPF AI Chat Test
-      </header>
-      <Card className="flex-1 mb-4">
-        <CardContent className="p-0">
-          <ScrollArea ref={scrollRef} className="h-full px-4 py-2">
-            {messages.map((m, i) => (
-              <div
-                key={i}
-                className={`my-2 ${m.sender === "q" ? "text-left" : "text-right"}`}
-              >
-                <span
-                  className={`inline-block p-2 rounded-lg ${
-                    m.sender === "q"
-                      ? "bg-white shadow"
-                      : "bg-blue-500 text-white"
-                  }`}
-                >
-                  {m.text}
-                </span>
-              </div>
-            ))}
+          <ScrollArea className="h-[50vh] w-full rounded border" ref={scrollRef}>
+            <div className="p-3 space-y-3">
+              {messages.length === 0 ? (
+                <div className="text-sm text-gray-500">Say hi to Q to start.</div>
+              ) : (
+                messages.map((m, i) => (
+                  <div
+                    key={i}
+                    className={
+                      m.sender === "user"
+                        ? "text-right"
+                        : "text-left"
+                    }
+                  >
+                    <span
+                      className={
+                        m.sender === "user"
+                          ? "inline-block bg-blue-600 text-white px-3 py-2 rounded-lg"
+                          : "inline-block bg-gray-200 text-gray-900 px-3 py-2 rounded-lg"
+                      }
+                    >
+                      {m.text}
+                    </span>
+                  </div>
+                ))
+              )}
+            </div>
           </ScrollArea>
+
+          <div className="flex gap-2">
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={onKeyDown}
+              placeholder={loading ? "Thinking..." : "Type a message"}
+              disabled={loading}
+            />
+            <Button onClick={sendMessage} disabled={loading}>
+              {loading ? "Sending..." : "Send"}
+            </Button>
+          </div>
         </CardContent>
       </Card>
-      <div className="flex">
-        <Input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-          placeholder="Type your message..."
-          className="flex-1 mr-2"
-        />
-        <Button onClick={sendMessage} disabled={loading}>
-          {loading ? "..." : "Send"}
-        </Button>
-      </div>
     </div>
   );
 }
