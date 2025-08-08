@@ -1,10 +1,12 @@
+```jsx
 // src/ChatPage.jsx
 import React, { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import axios from "axios";
+-import axios from "axios";
++import { sendChat } from "@/lib/api";
 
 export default function ChatPage() {
   const [messages, setMessages] = useState([]);
@@ -21,13 +23,53 @@ export default function ChatPage() {
 
   const sendMessage = async () => {
     if (!input.trim()) return;
+    // Append user message
     setMessages((m) => [...m, { sender: "user", text: input }]);
     setLoading(true);
+
     try {
-      const res = await axios.post("/api/chat", { text: input });
-      setMessages((m) => [...m, { sender: "q", text: res.data.response }]);
-    } catch {
-      setMessages((m) => [
+      // Send chat via centralized helper
+      const data = await sendChat(input, "testuser");
+      // Append Q's response
+      setMessages((m) => [...m, { sender: "q", text: data.response }]);
+    } catch (err) {
+      console.error("Chat API error:", err);
+      setMessages((m) => [...m, { sender: "q", text: "Error connecting to Q." }]);
+    } finally {
+      setLoading(false);
+      setInput("");
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-full">
+      <ScrollArea ref={scrollRef} className="flex-1 overflow-auto p-4">
+        {messages.map((msg, idx) => (
+          <Card key={idx} className={msg.sender === "user" ? "self-end bg-blue-100" : "self-start bg-gray-100"}>
+            <CardContent>{msg.text}</CardContent>
+          </Card>
+        ))}
+      </ScrollArea>
+
+      <div className="flex p-4 border-t">
+        <Input
+          className="flex-1 mr-2"
+          placeholder="Type your message..."
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !loading) sendMessage();
+          }}
+        />
+        <Button onClick={sendMessage} disabled={loading || !input.trim()}>
+          {loading ? 'Sending…' : 'Send'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+```
+}]}
         ...m,
         { sender: "q", text: "Error connecting to Q." },
       ]);
